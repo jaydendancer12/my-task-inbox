@@ -5,12 +5,6 @@ const GITHUB_OWNER = process.env.GITHUB_OWNER;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 const GITHUB_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`;
 
-async function createGitHubIssue(title, body, labels = []) {
-  await axios.post(GITHUB_API, { title, body, labels, assignees: [GITHUB_OWNER] }, {
-    headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
-  });
-}
-
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -18,22 +12,21 @@ module.exports = async (req, res) => {
 
   const { event_name, event_data } = req.body;
   const taskContent = event_data?.content || 'Untitled Task';
-  const dueDate = event_data?.due?.date || 'No due date';
-  const priorityMap = { 1: '🔵 Normal', 2: '🟡 Medium', 3: '🟠 High', 4: '🔴 Urgent' };
-  const priority = priorityMap[event_data?.priority] || '🔵 Normal';
 
-  let title = '', body = '';
+  let title = '';
+  if (event_name === 'item:added') title = `[Todoist] 🆕 New Task: ${taskContent}`;
+  else if (event_name === 'item:updated') title = `[Todoist] 🔄 Updated: ${taskContent}`;
+  else if (event_name === 'item:completed') title = `[Todoist] ✅ Completed: ${taskContent}`;
 
-  if (event_name === 'item:added') {
-    title = `[Todoist] 🆕 New Task: ${taskContent}`;
-    body = `**Task:** ${taskContent}\n**Due:** ${dueDate}\n**Priority:** ${priority}`;
-  } else if (event_name === 'item:updated') {
-    title = `[Todoist] 🔄 Task Updated: ${taskContent}`;
-    body = `**Task:** ${taskContent}\n**Due:** ${dueDate}\n**Priority:** ${priority}`;
-  } else if (event_name === 'item:completed') {
-    title = `[Todoist] ✅ Completed: ${taskContent}`;
-    body = `**Task:** ${taskContent}\n**Completed:** ${new Date().toISOString()}`;
+  if (!title) return;
+
+  try {
+    await axios.post(GITHUB_API,
+      { title, body: taskContent, assignees: [GITHUB_OWNER] },
+      { headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' } }
+    );
+    console.log('✅ GitHub issue created:', title);
+  } catch (err) {
+    console.error('❌ GitHub API error:', err.response?.data || err.message);
   }
-
-  if (title) await createGitHubIssue(title, body, ['todoist']);
 };
