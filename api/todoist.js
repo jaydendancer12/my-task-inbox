@@ -8,8 +8,6 @@ const GITHUB_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).end();
 
-  res.status(200).end();
-
   const { event_name, event_data } = req.body;
   const taskContent = event_data?.content || 'Untitled Task';
 
@@ -18,7 +16,7 @@ module.exports = async (req, res) => {
   else if (event_name === 'item:updated') title = `[Todoist] 🔄 Updated: ${taskContent}`;
   else if (event_name === 'item:completed') title = `[Todoist] ✅ Completed: ${taskContent}`;
 
-  if (!title) return;
+  if (!title) return res.status(200).end();
 
   try {
     await axios.post(GITHUB_API,
@@ -26,7 +24,9 @@ module.exports = async (req, res) => {
       { headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' } }
     );
     console.log('✅ GitHub issue created:', title);
+    res.status(200).end();
   } catch (err) {
     console.error('❌ GitHub API error:', err.response?.data || err.message);
+    res.status(500).end();
   }
 };
