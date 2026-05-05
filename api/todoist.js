@@ -1,5 +1,4 @@
 const axios = require('axios');
-const crypto = require('crypto');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_OWNER = process.env.GITHUB_OWNER;
@@ -14,11 +13,6 @@ async function createGitHubIssue(title, body, labels = []) {
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).end();
-
-  const hmac = crypto.createHmac('sha256', process.env.TODOIST_CLIENT_SECRET)
-    .update(JSON.stringify(req.body)).digest('base64');
-
-  if (hmac !== req.headers['x-todoist-hmac-sha256']) return res.status(401).end();
 
   res.status(200).end();
 
