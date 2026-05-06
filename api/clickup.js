@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).end();
 
   const { event, task_id, history_items = [] } = req.body;
-  if (!['taskAssigneeUpdated', 'taskUpdated', 'taskCreated'].includes(event)) {
+  if (!['taskAssigneeUpdated', 'taskUpdated', 'taskCreated', 'taskStatusUpdated'].includes(event)) {
     return res.status(200).end();
   }
 
@@ -50,10 +50,16 @@ module.exports = async (req, res) => {
   const now = new Date().toLocaleString();
 
   for (const item of history_items) {
+    const oldStatus = item.before?.status || 'Unknown';
+    const newStatus = item.after?.status || status;
+
     let title = '';
     let body = '';
 
-    if (event === 'taskAssigneeUpdated') {
+    if (event === 'taskStatusUpdated') {
+      title = `🔁 Status Changed: ${taskName}`;
+      body = `## 🔁 ClickUp Status Change\n\n**${taskName}**\n\n| Field | Value |\n|---|---|\n| 📊 Old Status | ${oldStatus} |\n| 📊 New Status | ${newStatus} |\n| 👤 Assignees | ${assignees} |\n| ⚡ Priority | ${priority} |\n| 📅 Due Date | ${dueDate} |\n| 📁 Space | ${space} |\n| 📋 List | ${list} |\n| 🕐 Updated | ${now} |\n\n> Open in [ClickUp](${taskUrl})`;
+    } else if (event === 'taskAssigneeUpdated') {
       title = `📌 Assigned to you: ${taskName}`;
       body = `## 📌 New ClickUp Assignment\n\n**${taskName}**\n\n| Field | Value |\n|---|---|\n| 📝 Description | ${description} |\n| 👤 Assignees | ${assignees} |\n| 👤 Creator | ${creator} |\n| 📊 Status | ${status} |\n| ⚡ Priority | ${priority} |\n| 📅 Due Date | ${dueDate} |\n| 📁 Space | ${space} |\n| 📂 Folder | ${folder} |\n| 📋 List | ${list} |\n| 🕐 Assigned | ${now} |\n\n> Open in [ClickUp](${taskUrl})`;
     } else if (event === 'taskUpdated') {
