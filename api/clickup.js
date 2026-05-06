@@ -3,7 +3,15 @@ const axios = require('axios');
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_OWNER = process.env.GITHUB_OWNER;
 const GITHUB_REPO = process.env.GITHUB_REPO;
+const CLICKUP_API_TOKEN = process.env.CLICKUP_API_TOKEN;
 const GITHUB_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`;
+
+async function getTaskDetails(taskId) {
+  const res = await axios.get(`https://api.clickup.com/api/v2/task/${taskId}`, {
+    headers: { Authorization: CLICKUP_API_TOKEN }
+  });
+  return res.data;
+}
 
 async function createGitHubIssue(title, body) {
   await axios.post(GITHUB_API,
@@ -20,21 +28,28 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  for (const item of history_items) {
-    const task = item.data || {};
-    const taskName = task.name || `Task ${task_id}`;
-    const taskUrl = `https://app.clickup.com/t/${task_id}`;
-    const now = new Date().toLocaleString();
-    const description = task.description || 'No description';
-    const status = task.status?.status || 'Unknown';
-    const priority = task.priority?.priority || 'No priority';
-    const assignees = task.assignees?.map(a => a.username).join(', ') || 'Unassigned';
-    const dueDate = task.due_date ? new Date(Number(task.due_date)).toLocaleDateString() : 'No due date';
-    const creator = task.creator?.username || 'Unknown';
-    const space = task.space?.name || 'Unknown';
-    const list = task.list?.name || 'Unknown';
-    const folder = task.folder?.name || 'Unknown';
+  let task;
+  try {
+    task = await getTaskDetails(task_id);
+  } catch (err) {
+    console.error('❌ Failed to fetch task:', err.response?.data);
+    return res.status(500).end();
+  }
 
+  const taskName = task.name || `Task ${task_id}`;
+  const taskUrl = task.url || `https://app.clickup.com/t/${task_id}`;
+  const description = task.description || 'No description';
+  const status = task.status?.status || 'Unknown';
+  const priority = task.priority?.priority || 'No priority';
+  const assignees = task.assignees?.map(a => a.username).join(', ') || 'Unassigned';
+  const dueDate = task.due_date ? new Date(Number(task.due_date)).toLocaleDateString() : 'No due date';
+  const creator = task.creator?.username || 'Unknown';
+  const space = task.space?.name || 'Unknown';
+  const list = task.list?.name || 'Unknown';
+  const folder = task.folder?.name || 'Unknown';
+  const now = new Date().toLocaleString();
+
+  for (const item of history_items) {
     let title = '';
     let body = '';
 
@@ -55,7 +70,7 @@ module.exports = async (req, res) => {
         console.log('✅ GitHub issue created:', title);
       } catch (err) {
         console.error('❌ Error:', err.response?.data);
-        return res.status(500).json({ error: err.response?.data });
+        return res.status(500).end();
       }
     }
   }
